@@ -553,11 +553,9 @@ tarfs_alloc_mount(struct mount *mp, struct vnode *vp, time_t root_mtime,
 	case VCHR:
 		dev = vp->v_rdev;
 		dev_ref(dev);
-		DROP_GIANT();
 		g_topology_lock();
 		error = g_vfs_open(vp, &cp, "tarfs", 0);
 		g_topology_unlock();
-		PICKUP_GIANT();
 		VOP_UNLOCK(vp);
 		if (error != 0)
 			goto bad;
@@ -713,11 +711,9 @@ bad:
 	if (tmp != NULL)
 		tarfs_free_mount(tmp);
 	if (cp != NULL) {
-		DROP_GIANT();
 		g_topology_lock();
 		g_vfs_close(cp);
 		g_topology_unlock();
-		PICKUP_GIANT();
 	}
 	tarfs_free_iconv(&iconv_list);
 	return error;
@@ -789,9 +785,7 @@ tarfs_mount(struct mount *mp)
 
 	/* Determine if type of source file is supported (VREG or VCHR) */
 	if (vp->v_type == VREG) {
-		DROP_GIANT();
 		error = vn_open_vnode(vp, flags, td->td_ucred, td, NULL);
-		PICKUP_GIANT();
 	} else if (vn_isdisk(vp) == 0) {
 		error = VOP_ACCESS(vp, VREAD, td->td_ucred, td);
 		if (error != 0)
@@ -839,9 +833,7 @@ tarfs_mount(struct mount *mp)
 bad:
 	VOP_UNLOCK(vp);
 	if (vp->v_type == VREG) {
-		DROP_GIANT();
 		(void)vn_close(vp, flags, td->td_ucred, td);
-		PICKUP_GIANT();
 	}
 	return error;
 }
@@ -874,16 +866,12 @@ tarfs_unmount(struct mount *mp, int mntflags)
 	vp = tmp->tfsmnt_vp;
 	switch (vp->v_type) {
 	case VREG:
-		DROP_GIANT();
 		vn_close(vp, FREAD, td->td_ucred, td);
-		PICKUP_GIANT();
 		break;
 	case VCHR:
-		DROP_GIANT();
 		g_topology_lock();
 		g_vfs_close(tmp->tfsmnt_cp);
 		g_topology_unlock();
-		PICKUP_GIANT();
 		vrele(tmp->tfsmnt_vp);
 		dev_rel(tmp->tfsmnt_dev);
 		break;
